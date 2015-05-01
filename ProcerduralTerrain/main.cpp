@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
 
     app.setApplicationName("Car 101");
 #ifndef QT_NO_OPENGL
-    MyWidget myW;
+    TerrainWindow myW;
     myW.show();
 #else
     QLabel note("OpenGL Support required");

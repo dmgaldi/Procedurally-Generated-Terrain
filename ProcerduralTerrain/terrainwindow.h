@@ -22,13 +22,13 @@ author: Zheng Xu, xuzhustc@gmail.com
 #include <QMatrix4x4>
 #include <QVector4D>
 
-class MyWidget : public QOpenGLWidget, protected QOpenGLFunctions
+class TerrainWindow : public QOpenGLWidget, protected QOpenGLFunctions
 {
     Q_OBJECT
 
 public:
-    explicit MyWidget(QWidget *parent = 0);
-    ~MyWidget();
+    explicit TerrainWindow(QWidget *parent = 0);
+    ~TerrainWindow();
 
 protected:
     void initializeGL() Q_DECL_OVERRIDE;
@@ -45,7 +45,7 @@ private:
     void moveCube(const int cords[6][4][3], float (&nCds)[6][4][3], float x, float y, float z, float scale);
     void addCube(QVector<GLfloat> &vertData, float coords[6][4][3], float red, float green, float blue, float alpha);
 
-    void addHeightMap(float **hmap, float minXCoord, float maxXCoord, float minZCoord, float maxZCoord);
+    void addHeightMap(float **hmap);
     void addHeightMapVertex(QVector<GLfloat> &vertData, QVector3D &position, QVector3D &normal, QVector4D &color);
     void rotateCamera(float degrees, float x, float y, float z);
     void moveCameraForward(float amount);
@@ -53,6 +53,8 @@ private:
 
 
     /* Private Member variables */
+    float **hmap;
+    float minCoord, maxCoord;
     QColor clearColor;
     QOpenGLShaderProgram *program;
     QOpenGLVertexArrayObject vao;
@@ -60,6 +62,7 @@ private:
     QOpenGLTexture *textures[6];
     int cubNum;
     QString txtPath;
+    int meshSize;
 
     /* Collision Detection variables:
      * cube x is represented by corners cubeMinPoints.at(x), cubeMaxPoints.at(x)*/
@@ -80,8 +83,7 @@ private:
     float movementSpeed;
     float horizontalAngle;
     float verticalAngle;
-    int meshXSize;
-    int meshYSize;
+
 
 private slots:
     void automove();
