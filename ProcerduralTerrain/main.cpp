@@ -8,7 +8,7 @@ author: Zheng Xu, xuzhustc@gmail.com
 ****************************************************************************/
 
 #ifndef QT_NO_OPENGL
-#include "mywidget.h"
+#include "terrainwindow.h"
 #endif
 
 #include <QApplication>

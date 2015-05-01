@@ -7,7 +7,7 @@ author: Zheng Xu, xuzhustc@gmail.com
 **
 ****************************************************************************/
 
-#include "mywidget.h"
+#include "terrainwindow.h"
 
 MyWidget::MyWidget(QWidget *parent)
     : QOpenGLWidget(parent)

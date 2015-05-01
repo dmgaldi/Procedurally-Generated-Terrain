@@ -7,8 +7,8 @@ author: Zheng Xu, xuzhustc@gmail.com
 **
 ****************************************************************************/
 
-#ifndef MYWIDGET_H
-#define MYWIDGET_H
+#ifndef TERRAINWINDOW_H
+#define TERRAINWINDOW_H
 
 #include <QOpenGLWidget>
 #include <QOpenGLFunctions>
