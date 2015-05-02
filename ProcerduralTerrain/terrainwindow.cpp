@@ -86,7 +86,7 @@ void TerrainWindow::initMat()
     int yHeightMapCoord = round(((position -> z() - minCoord) * (float) meshSize)/(maxCoord-minCoord));
   //  position->setY()
     position->setY(hmap[xHeightMapCoord][yHeightMapCoord]);
-    mvpMat.translate(0.0f, -position->y(), 0.0f);
+    mvpMat.translate(0.0f, -position->y() - .01f, 0.0f);
     //mvpMat.rotate(20.0f, 0.0f, 1.0f, 0.0f);
 
 }
@@ -232,8 +232,8 @@ void TerrainWindow::moveCameraForward(float amount) {
     position->setZ(position -> z() - zMovement);
     int xHeightMapCoord = round(((position -> x() - minCoord) * (float) meshSize)/(maxCoord-minCoord));
     int yHeightMapCoord = round(((position -> z() - minCoord) * (float) meshSize)/(maxCoord-minCoord));
-  //  position->setY()
     float test = hmap[xHeightMapCoord][yHeightMapCoord] - position->y();
+    position->setY(hmap[xHeightMapCoord][yHeightMapCoord]);
     mvpMat.translate(xMovement, -test, zMovement);
 }
 
