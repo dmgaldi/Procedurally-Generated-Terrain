@@ -14,7 +14,6 @@ TerrainWindow::TerrainWindow(QWidget *parent)
 {
     memset(textures, 0, sizeof(textures));
     txtPath = TXT_IMG_PATH;
-    cubNum = CUBE_NUM;
     horizontalAngle = 90.0f;
     verticalAngle = 0.0f;
     turningSpeed = 1.5f;
