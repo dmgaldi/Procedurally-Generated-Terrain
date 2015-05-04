@@ -17,8 +17,8 @@ TerrainWindow::TerrainWindow(QWidget *parent)
     cubNum = CUBE_NUM;
     horizontalAngle = 90.0f;
     verticalAngle = 0.0f;
-    turningSpeed = 1.0f;
-    movementSpeed = 0.0025f;
+    turningSpeed = 1.5f;
+    movementSpeed = 0.005f;
     position = new QVector3D();
     automoveTimer = new QTimer(this);
     automoveInterval = 300;

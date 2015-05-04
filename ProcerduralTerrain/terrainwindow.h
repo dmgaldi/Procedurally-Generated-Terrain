@@ -56,7 +56,6 @@ private:
     void rotateCamera(float degrees, float x, float y, float z);
     void moveCameraForward(float amount);
     QVector4D getColor(float height, QVector3D color1, QVector3D color2, QVector3D color3);
-    boolean collides(QVector3D *min, QVector3D *max, QVector3D *point);
 
 
     /* Private Member variables */
@@ -68,7 +67,6 @@ private:
     QOpenGLVertexArrayObject vao;
     QOpenGLBuffer vbo;
     QOpenGLTexture *textures[6];
-    int cubNum;
     QString txtPath;
     int meshSize;
     QVector3D **normals;
