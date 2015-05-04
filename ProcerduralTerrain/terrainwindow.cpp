@@ -46,7 +46,7 @@ TerrainWindow::~TerrainWindow()
 
 void TerrainWindow::initializeGL()
 {
-    int i, j;
+    unsigned int i;
     initializeOpenGLFunctions();
 
     setFocusPolicy(Qt::TabFocus);
@@ -72,7 +72,7 @@ void TerrainWindow::initializeGL()
 
 
 
-    dsFractal(.2, .2, .3, .2, 2.0);
+    dsFractal(.2f, .2f, .3f, .2f, 4.0f);
     smoothTerrain();
     addHeightMap(hmap);
     initMat();
@@ -98,11 +98,11 @@ void TerrainWindow::smoothTerrain() {
 
             for (u = 0; u < filterSize; u++) {
                 filterLocX = (i - ((filterSize - 1) / 2) + u);
-                filterLocX = std::max(0, std::min(filterLocX, meshSize - 1));
+                filterLocX = std::max(0, std::min(filterLocX, (int) meshSize - 1));
 
                 for (v = 0; v < filterSize; v++) {
                     filterLocY = (j - ((filterSize - 1) / 2) + v);
-                    filterLocY = std::max(0, std::min(filterLocY, meshSize - 1));
+                    filterLocY = std::max(0, std::min(filterLocY, (int) meshSize - 1));
                     newValue += filter[u][v] * hmap[filterLocX][filterLocY];
                 }
             }
@@ -201,18 +201,18 @@ void TerrainWindow::addHeightMapVertex(QVector<GLfloat> &vertData, QVector3D &po
 QVector4D TerrainWindow::getColor(float height, QVector3D low, QVector3D mid, QVector3D high)  {
     float coefficient = (height - minHeight)/(maxHeight-minHeight);
     QVector3D color;
-    float lowCutoff = .3f;
-    float lowMidCutoff = .75f;
-    float midCutoff = .77f;
-    float midHighCutoff = .95f;
+    float lowCutoff = .5f;
+    float lowMidCutoff = .65f;
+    float midCutoff = .7f;
+    float midHighCutoff = .8f;
     if (coefficient < lowCutoff) {
         color = low;
     } else if (coefficient > lowCutoff && coefficient < lowMidCutoff) {
-        color = low * ((coefficient - lowCutoff)/(lowMidCutoff - lowCutoff)) + mid * (1.0f - ((coefficient - lowCutoff)/(lowMidCutoff - lowCutoff)));
+        color = low * (1.0f - ((coefficient - lowCutoff)/(lowMidCutoff - lowCutoff))) + mid * (((coefficient - lowCutoff)/(lowMidCutoff - lowCutoff)));
     } else if (coefficient > lowMidCutoff && coefficient < midCutoff) {
         color = mid;
     } else if (coefficient > midCutoff && coefficient < midHighCutoff) {
-        color = mid * ((coefficient - midCutoff)/(midHighCutoff - midCutoff)) + high * (1.0f - ((coefficient - midCutoff)/(midHighCutoff - midCutoff)));
+        color = mid * (1.0f - ((coefficient - midCutoff)/(midHighCutoff - midCutoff))) + high * (((coefficient - midCutoff)/(midHighCutoff - midCutoff)));
     } else  {
         color = high;
 
@@ -227,12 +227,14 @@ void TerrainWindow::dsFractal(float a, float b, float c, float d, float rough) {
   unsigned int meshCount;
   unsigned int i,j;
   float r;
-  float currentRough = rough;
   // seed corners of array
   hmap[0][0] = a;
   hmap[meshSize-1][0] = b;
   hmap[0][meshSize-1] = c;
   hmap[meshSize-1][meshSize-1] = d;
+  minHeight = std::min(a, std::min(b, std::min(c, std::min(d, minHeight))));
+  maxHeight = std::max(a, std::max(b, std::max(c, std::max(d, maxHeight))));
+
   // seed the RNG with time
   srand(time(NULL));
 
@@ -456,16 +458,15 @@ void TerrainWindow::resizeGL(int width, int height)
 /* Move the camera forward by the specified amount. Forward is relative to the direction the camera is facing */
 void TerrainWindow::moveCameraForward(float amount) {
     int i;
-    boolean collision = false;
     float xMovement = -cos(PI * horizontalAngle/180.0f)*amount;
     float zMovement = -sin(PI * horizontalAngle/180.0f)*amount;
     position->setX(position -> x() - xMovement);
     position->setZ(position -> z() - zMovement);
     int xHeightMapCoord = round(((position -> x() - minCoord) * (float) meshSize)/(maxCoord-minCoord));
     int yHeightMapCoord = round(((position -> z() - minCoord) * (float) meshSize)/(maxCoord-minCoord));
-    float test = hmap[xHeightMapCoord][yHeightMapCoord] - position->y();
+    float deltaHeight = hmap[xHeightMapCoord][yHeightMapCoord] - position->y();
     position->setY(hmap[xHeightMapCoord][yHeightMapCoord]);
-    mvpMat.translate(xMovement, -test, zMovement);
+    mvpMat.translate(xMovement, -deltaHeight, zMovement);
 }
 
 /* Rotate view around the y-axis anchored at camera by specified number of degrees */

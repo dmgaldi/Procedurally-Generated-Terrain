@@ -68,7 +68,7 @@ private:
     QOpenGLBuffer vbo;
     QOpenGLTexture *textures[6];
     QString txtPath;
-    int meshSize;
+    unsigned int meshSize;
     QVector3D **normals;
 
     /* Collision Detection variables:
