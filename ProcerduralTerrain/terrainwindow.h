@@ -18,6 +18,7 @@ author: Zheng Xu, xuzhustc@gmail.com
 #include <QKeyEvent>
 #include <QtGui>
 #include <QTimer>
+#include <time.h>
 
 #include <QMatrix4x4>
 #include <QVector4D>
@@ -42,19 +43,26 @@ protected:
 
 private:
     void loadCubes();
+    void dsFractal(float a, float b, float c, float d, float rough);
     void moveCube(const int cords[6][4][3], float (&nCds)[6][4][3], float x, float y, float z, float scale);
     void addCube(QVector<GLfloat> &vertData, float coords[6][4][3], float red, float green, float blue, float alpha);
+
+    void smoothTerrain();
+    void calculateNormals();
+    QVector3D *getVertexNormal(int i, int j);
 
     void addHeightMap(float **hmap);
     void addHeightMapVertex(QVector<GLfloat> &vertData, QVector3D &position, QVector3D &normal, QVector4D &color);
     void rotateCamera(float degrees, float x, float y, float z);
     void moveCameraForward(float amount);
+    QVector4D getColor(float height, QVector3D color1, QVector3D color2, QVector3D color3);
     boolean collides(QVector3D *min, QVector3D *max, QVector3D *point);
 
 
     /* Private Member variables */
     float **hmap;
     float minCoord, maxCoord;
+    float minHeight, maxHeight;
     QColor clearColor;
     QOpenGLShaderProgram *program;
     QOpenGLVertexArrayObject vao;
@@ -63,6 +71,7 @@ private:
     int cubNum;
     QString txtPath;
     int meshSize;
+    QVector3D **normals;
 
     /* Collision Detection variables:
      * cube x is represented by corners cubeMinPoints.at(x), cubeMaxPoints.at(x)*/

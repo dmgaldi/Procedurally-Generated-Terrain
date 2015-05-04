@@ -18,19 +18,19 @@ TerrainWindow::TerrainWindow(QWidget *parent)
     horizontalAngle = 90.0f;
     verticalAngle = 0.0f;
     turningSpeed = 1.0f;
-    movementSpeed = 0.005f;
+    movementSpeed = 0.0025f;
     position = new QVector3D();
     automoveTimer = new QTimer(this);
     automoveInterval = 300;
     somersaultTimer = new QTimer(this);
-    lightDirection = QVector3D(1.0f, 1.0f, 1.0f);
+    lightDirection = QVector3D(0.0f, 1.0f, 0.0f);
     lightDirection.normalize();
     lightIntensity = QVector3D(1.0f, 1.0f, 1.0f);
-    meshSize = 1 + pow(2, 8);
+    meshSize = 1 + pow(2, 10);
     minCoord = -1.0f;
     maxCoord = 1.0f;
-    minHeight = 0.2f;
-    maxHeight = -0.2;
+    minHeight = FLT_MAX;
+    maxHeight = -FLT_MAX;
     connect(automoveTimer, SIGNAL(timeout()), this, SLOT(automove()));
     connect(somersaultTimer, SIGNAL(timeout()), this, SLOT(somersault()));
 }
@@ -56,8 +56,8 @@ void TerrainWindow::initializeGL()
     glEnable(GL_DEPTH_TEST);
     // Enable back face culling
     glEnable(GL_CULL_FACE);
-    glEnable(GL_LINE_SMOOTH);
-    glEnable(GL_POLYGON_SMOOTH);
+  //  glEnable(GL_LINE_SMOOTH);
+  //  glEnable(GL_POLYGON_SMOOTH);
 
     glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
     glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
@@ -72,48 +72,52 @@ void TerrainWindow::initializeGL()
     }
 
 
-   /* float mean = meshSize/2.0f;
-    float stdDev = 45.0f;
-    hmap = new float*[meshSize];
-    for (i = 0; i < meshSize; i++) {
-        hmap[i] = new float[meshSize];
-        for (j = 0; j < meshSize; j++) {
-            hmap[i][j] = (1.0f / 24.0f) * expf(-((i-mean)*(i-mean) + (j-mean)*(j-mean))/(2.0f * stdDev * stdDev));
-        }
-    }
 
-    double max = 0.0;
-    for (i = 0; i < meshSize; i++) {
-        for (j = 0; j < meshSize; j++) {
-            if (hmap[i][j] > max) {
-                max = hmap[i][j];
-            }
-        }
-    }
-    for (i = 0; i < meshSize; i++) {
-        for (j = 0; j < meshSize; j++) {
-            hmap[i][j] /= max;
-            hmap[i][j] = (hmap[i][j] / (maxHeight - minHeight)) - minHeight;
-        }
-    }*/
-
-    dsFractal(.2, .2, .3, .2, .01);
-    for (i = 0; i < meshSize; i++) {
-        for (j = 0; j < meshSize; j++) {
-            printf("%f ", hmap[i][j]);
-        }
-        printf("\n");
-    }
+    dsFractal(.2, .2, .3, .2, 2.0);
+    smoothTerrain();
     addHeightMap(hmap);
     initMat();
     initShaders();
+}
+
+void TerrainWindow::smoothTerrain() {
+    int i, j, u, v;
+    int filterLocX, filterLocY;
+    int filterSize = 5;
+    float newValue;
+    float **filter = new float*[filterSize];
+    for (i = 0; i < filterSize; i++) {
+        filter[i] = new float[filterSize];
+        for (j = 0; j < filterSize; j++) {
+            filter[i][j] = 1.0f / (filterSize * filterSize);
+        }
+    }
+
+    for (i = 0 ; i < meshSize; i++) {
+        for (j = 0; j < meshSize; j++) {
+            newValue = 0.0;
+
+            for (u = 0; u < filterSize; u++) {
+                filterLocX = (i - ((filterSize - 1) / 2) + u);
+                filterLocX = std::max(0, std::min(filterLocX, meshSize - 1));
+
+                for (v = 0; v < filterSize; v++) {
+                    filterLocY = (j - ((filterSize - 1) / 2) + v);
+                    filterLocY = std::max(0, std::min(filterLocY, meshSize - 1));
+                    newValue += filter[u][v] * hmap[filterLocX][filterLocY];
+                }
+            }
+
+            hmap[i][j] = newValue;
+        }
+    }
 }
 
 void TerrainWindow::initMat()
 {
     QMatrix4x4 proj;
     QMatrix4x4 view;
-    proj.perspective(45.0f, 1.0f, 0.000001f, 100.0f);
+    proj.perspective(55.0f, 1.0f, 0.000001f, 100.0f);
     view.lookAt(QVector3D(0.0f, 0.0, 0.0f), QVector3D(0.0f, 0.0f, 1.0f), QVector3D(0.0f, 1.0f, 0.0f));
     mvpMat0 = proj * view;
     mvpMat = mvpMat0;
@@ -196,8 +200,24 @@ void TerrainWindow::addHeightMapVertex(QVector<GLfloat> &vertData, QVector3D &po
 }
 
 QVector4D TerrainWindow::getColor(float height, QVector3D low, QVector3D mid, QVector3D high)  {
-    float coefficient = (height + minHeight)/(maxHeight-minHeight);
-    QVector3D color = low * (1.0f - coefficient) + high * (coefficient);
+    float coefficient = (height - minHeight)/(maxHeight-minHeight);
+    QVector3D color;
+    float lowCutoff = .3f;
+    float lowMidCutoff = .75f;
+    float midCutoff = .77f;
+    float midHighCutoff = .95f;
+    if (coefficient < lowCutoff) {
+        color = low;
+    } else if (coefficient > lowCutoff && coefficient < lowMidCutoff) {
+        color = low * ((coefficient - lowCutoff)/(lowMidCutoff - lowCutoff)) + mid * (1.0f - ((coefficient - lowCutoff)/(lowMidCutoff - lowCutoff)));
+    } else if (coefficient > lowMidCutoff && coefficient < midCutoff) {
+        color = mid;
+    } else if (coefficient > midCutoff && coefficient < midHighCutoff) {
+        color = mid * ((coefficient - midCutoff)/(midHighCutoff - midCutoff)) + high * (1.0f - ((coefficient - midCutoff)/(midHighCutoff - midCutoff)));
+    } else  {
+        color = high;
+
+    }
     return QVector4D(color.x(), color.y(), color.z(), 1.0f);
 }
 
@@ -208,6 +228,7 @@ void TerrainWindow::dsFractal(float a, float b, float c, float d, float rough) {
   unsigned int meshCount;
   unsigned int i,j;
   float r;
+  float currentRough = rough;
   // seed corners of array
   hmap[0][0] = a;
   hmap[meshSize-1][0] = b;
@@ -218,6 +239,7 @@ void TerrainWindow::dsFractal(float a, float b, float c, float d, float rough) {
 
   // iterate through meshScales until reaching floor of 1
   for (meshCount = meshSize; meshCount > 2; meshCount = 1 + meshCount/2) {
+    rough /= 2;
 
     // diamond step
     for (i = meshCount/2; i < meshSize; i += meshCount-1) {
@@ -229,6 +251,8 @@ void TerrainWindow::dsFractal(float a, float b, float c, float d, float rough) {
                 + hmap[i-meshCount/2][j+meshCount/2]
                 + hmap[i+meshCount/2][j+meshCount/2]
             );
+            maxHeight = std::max(hmap[i][j], maxHeight);
+            minHeight = std::min(hmap[i][j], minHeight);
         }
     }
 
@@ -243,6 +267,8 @@ void TerrainWindow::dsFractal(float a, float b, float c, float d, float rough) {
             + hmap[0][j+meshCount/2]
             + hmap[meshCount/2][j]
         )/3.0f;
+        maxHeight = std::max(hmap[0][j], maxHeight);
+        minHeight = std::min(hmap[0][j], minHeight);
     }
     // middle evens
     for (i = meshCount-1; i < meshSize-(meshCount-1); i += meshCount-1) {
@@ -254,6 +280,8 @@ void TerrainWindow::dsFractal(float a, float b, float c, float d, float rough) {
                 + hmap[i-meshCount/2][j]
                 + hmap[i+meshCount/2][j]
             );
+            maxHeight = std::max(hmap[i][j], maxHeight);
+            minHeight = std::min(hmap[i][j], minHeight);
         }
     }
     // bottom row
@@ -264,6 +292,8 @@ void TerrainWindow::dsFractal(float a, float b, float c, float d, float rough) {
             + hmap[meshSize-1][j+meshCount/2]
             + hmap[i-meshCount/2][j]
         )/3.0f;
+        maxHeight = std::max(hmap[meshSize-1][j], maxHeight);
+        minHeight = std::min(hmap[meshSize-1][j], minHeight);
     }
 
     // odd rows
@@ -275,8 +305,10 @@ void TerrainWindow::dsFractal(float a, float b, float c, float d, float rough) {
             + hmap[i-meshCount/2][0]
             + hmap[i+meshCount/2][0]
         )/3.0f;
+        maxHeight = std::max(hmap[i][0], maxHeight);
+        minHeight = std::min(hmap[i][0], minHeight);
         // middle columns
-        for (j = meshCount-1; j < meshSize; j += meshCount-1) {
+        for (j = meshCount-1; j < meshSize-1; j += meshCount-1) {
             r = rand() / (float)RAND_MAX;
             hmap[i][j] = rough*r + 0.25f*(
                 hmap[i][j-meshCount/2]
@@ -284,6 +316,8 @@ void TerrainWindow::dsFractal(float a, float b, float c, float d, float rough) {
                 + hmap[i-meshCount/2][j]
                 + hmap[i+meshCount/2][j]
             );
+            maxHeight = std::max(hmap[i][j], maxHeight);
+            minHeight = std::min(hmap[i][j], minHeight);
         }
         // right column
         r = rand() / (float)RAND_MAX;
@@ -292,6 +326,8 @@ void TerrainWindow::dsFractal(float a, float b, float c, float d, float rough) {
             + hmap[i-meshCount/2][meshSize-1]
             + hmap[i+meshCount/2][meshSize-1]
         )/3.0f;
+        maxHeight = std::max(hmap[i][meshSize-1], maxHeight);
+        minHeight = std::min(hmap[i][meshSize-1], minHeight);
     }
 
   }
@@ -300,23 +336,18 @@ void TerrainWindow::dsFractal(float a, float b, float c, float d, float rough) {
 }
 
 
-
-
-void TerrainWindow::addHeightMap(float **hmap)
-{
-    int i, j;
-    QVector<GLfloat> vertData;
-    int xSize = meshSize;
-    int ySize = meshSize;
-    QVector4D color = QVector4D(0.0f,0.8f,0.0f,1.0f);
-    QVector3D v1, v2, v3, v4, normal1, normal2;
-    QVector4D colorv1, colorv2, colorv3, colorv4;
-    QVector3D colorLow = QVector3D(0.0f, 0.8f, 0.0f);
-    QVector3D colorMid = QVector3D(0.3f, 0.3f, 0.3f);
+void TerrainWindow::calculateNormals() {
+    unsigned int i, j;
+    unsigned int meshTriangleSize = (meshSize - 1) * 2;
+    QVector3D normal1, normal2, v1,v2, v3, v4;
+    normals = new QVector3D*[meshTriangleSize];
+    for (i = 0; i < meshTriangleSize; i++) {
+        normals[i] = new QVector3D[meshTriangleSize];
+    }
     float scaleFactor = ( maxCoord - minCoord ) / (float) meshSize;
-    for (i = 0; i < xSize-1; i++) {
-        for (j = 0; j < ySize-1; j++) {
-            // Create the four vertices in the mesh
+
+    for (i = 0; i < meshSize-1; i++) {
+        for (j = 0; j < meshSize-1; j++) {
             v1 = QVector3D(minCoord + ((float) i) * scaleFactor, hmap[i][j], minCoord + ((float) j) * scaleFactor );
             v2 = QVector3D(minCoord + ((float) i) * scaleFactor, hmap[i][j+1], minCoord + ((float) j+1) * scaleFactor );
             v3 = QVector3D(minCoord + ((float) i+1) * scaleFactor, hmap[i+1][j], minCoord + ((float) j) * scaleFactor );
@@ -325,19 +356,69 @@ void TerrainWindow::addHeightMap(float **hmap)
             normal1.normalize();
             normal2 = QVector3D::crossProduct(v3 - v4, v2 - v4);
             normal2.normalize();
-            colorv1 = getColor(hmap[i][j], colorLow, colorMid, colorMid);
-            colorv2 = getColor(hmap[i][j+1], colorLow, colorMid, colorMid);
-            colorv3 = getColor(hmap[i+1][j], colorLow, colorMid, colorMid);
-            colorv4 = getColor(hmap[i+1][j+1], colorLow, colorMid, colorMid);
-            color = QVector4D(0.0f, 1.0f, 0.0f, 1.0f);
+            normals[i][2*j] = normal1;
+            normals[i][2*j + 1] = normal2;
+        }
+    }
+
+}
+
+QVector3D *TerrainWindow::getVertexNormal(int i, int j) {
+    unsigned int u, v, w, xCoord, yCoord;
+    QVector3D *normal = new QVector3D(0.0f, 0.0f, 0.0f);
+
+    w = 1;
+    for (u = i-1; u < i; u++) {
+        for (v = j-1+w; v < j+w+3; v++) {
+            xCoord = std::max(0, std::min((int)meshSize * 2, (int)u));
+            yCoord = std::max(0, std::min((int)meshSize * 2, (int)v));
+            normal->operator +=(normals[xCoord][yCoord]);
+        }
+        w++;
+    }
+    normal->operator /=(6.0f);
+    return normal;
+}
+
+
+void TerrainWindow::addHeightMap(float **hmap)
+{
+    unsigned int i, j;
+    QVector<GLfloat> vertData;
+    QVector3D v1, v2, v3, v4, *v1Normal, *v2Normal, *v3Normal, *v4Normal;
+    QVector4D colorv1, colorv2, colorv3, colorv4;
+    QVector3D colorLow = QVector3D(0.0f, 1.0f, 0.0f);
+    QVector3D colorMid = QVector3D(0.3f, 0.3f, 0.3f);
+    QVector3D colorHigh = QVector3D(1.0f, 1.0f, 1.0f);
+
+    calculateNormals();
+
+    float scaleFactor = ( maxCoord - minCoord ) / (float) meshSize;
+    for (i = 0; i < meshSize-1; i++) {
+        for (j = 0; j < meshSize-1; j++) {
+            // Create the four vertices in the mesh
+            v1 = QVector3D(minCoord + ((float) i) * scaleFactor, hmap[i][j], minCoord + ((float) j) * scaleFactor );
+            v2 = QVector3D(minCoord + ((float) i) * scaleFactor, hmap[i][j+1], minCoord + ((float) j+1) * scaleFactor );
+            v3 = QVector3D(minCoord + ((float) i+1) * scaleFactor, hmap[i+1][j], minCoord + ((float) j) * scaleFactor );
+            v4 = QVector3D(minCoord + ((float) i+1) * scaleFactor, hmap[i+1][j+1], minCoord + ((float) j+1) * scaleFactor );
+            colorv1 = getColor(hmap[i][j], colorLow, colorMid, colorHigh);
+            colorv2 = getColor(hmap[i][j+1], colorLow, colorMid, colorHigh);
+            colorv3 = getColor(hmap[i+1][j], colorLow, colorMid, colorHigh);
+            colorv4 = getColor(hmap[i+1][j+1], colorLow, colorMid, colorHigh);
+
+            v1Normal = getVertexNormal(i, j);
+            v2Normal = getVertexNormal(i, j+1);
+            v3Normal = getVertexNormal(i+1, j);
+            v4Normal = getVertexNormal(i+1, j+1);
             //Triangle 1
-            addHeightMapVertex(vertData, v1, normal1, color);
-            addHeightMapVertex(vertData, v2, normal1, color);
-            addHeightMapVertex(vertData, v3, normal1, color);
+            addHeightMapVertex(vertData, v1, *v1Normal, colorv1);
+            addHeightMapVertex(vertData, v2, *v2Normal, colorv2);
+            addHeightMapVertex(vertData, v3, *v3Normal, colorv3);
             //Triangle 2
-            addHeightMapVertex(vertData, v3, normal2, color);
-            addHeightMapVertex(vertData, v2, normal2, color);
-            addHeightMapVertex(vertData, v4, normal2, color);
+            addHeightMapVertex(vertData, v3, *v3Normal, colorv3);
+            addHeightMapVertex(vertData, v2, *v2Normal, colorv2);
+            addHeightMapVertex(vertData, v4, *v4Normal, colorv4);
+            delete v1Normal, v2Normal, v3Normal, v4Normal;
         }
     }
     vbo.create();
